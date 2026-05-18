@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Cofres — MinhasFinanças{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-piggy-bank me-2 text-warning"></i>Meus Cofres</h4>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovoCofre">
+    <i class="bi bi-plus-lg me-1"></i>Novo cofre
+  </button>
+</div>
+
+<div class="row g-3">
+  {% for cofre in cofres %}
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <span class="fs-2">{{ cofre.emoji }}</span>
+            <h5 class="fw-bold mb-0 mt-1">{{ cofre.nome }}</h5>
+          </div>
+          <form method="POST" action="{{ url_for('main.excluir_cofre', id=cofre.id) }}"
+            onsubmit="return confirm('Excluir este cofre?')">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+
+        <div class="d-flex justify-content-between mb-1">
+          <small class="text-muted">R$ {{ "%.2f"|format(cofre.valor_atual) }} guardado</small>
+          <small class="fw-semibold">{{ cofre.percentual }}%</small>
+        </div>
+        <div class="progress mb-2" style="height:10px;">
+          <div class="progress-bar bg-warning" style="width:{{ cofre.percentual }}%"></div>
+        </div>
+        <small class="text-muted">Meta: R$ {{ "%.2f"|format(cofre.meta) }}</small>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-sm btn-outline-success w-50" data-bs-toggle="modal"
+            data-bs-target="#modalDepositar{{ cofre.id }}">
+            <i class="bi bi-plus-circle me-1"></i>Depositar
+          </button>
+          <button class="btn btn-sm btn-outline-secondary w-50" data-bs-toggle="modal"
+            data-bs-target="#modalRetirar{{ cofre.id }}">
+            <i class="bi bi-dash-circle me-1"></i>Retirar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal depositar -->
+  <div class="modal fade" id="modalDepositar{{ cofre.id }}" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <form method="POST" action="{{ url_for('main.depositar_cofre', id=cofre.id) }}">
+          <input type="hidden" name="acao" value="depositar">
+          <div class="modal-header">
+            <h6 class="modal-title">Depositar em {{ cofre.nome }}</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <label class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-success w-100">Depositar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal retirar -->
+  <div class="modal fade" id="modalRetirar{{ cofre.id }}" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <form method="POST" action="{{ url_for('main.depositar_cofre', id=cofre.id) }}">
+          <input type="hidden" name="acao" value="retirar">
+          <div class="modal-header">
+            <h6 class="modal-title">Retirar de {{ cofre.nome }}</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <label class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-secondary w-100">Retirar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="col-12">
+    <div class="card text-center py-5 text-muted">
+      <i class="bi bi-piggy-bank fs-1 d-block mb-3"></i>
+      Nenhum cofre criado ainda. Crie um para guardar dinheiro por objetivo.
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal novo cofre -->
+<div class="modal fade" id="modalNovoCofre" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('main.novo_cofre') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Novo cofre</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome do cofre</label>
+            <input type="text" name="nome" class="form-control"
+              placeholder="Ex: Viagem, Celular novo, Bolsas..." required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Emoji</label>
+            <input type="text" name="emoji" class="form-control" value="🏦" maxlength="2">
+            <div class="form-text">Escolha um emoji que represente o objetivo. Ex: ✈️ 👜 📱 🏠</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Meta (R$)</label>
+            <input type="number" step="0.01" min="1" name="meta" class="form-control"
+              placeholder="Quanto quer guardar?" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Valor inicial (R$)</label>
+            <input type="number" step="0.01" min="0" name="valor_atual"
+              class="form-control" value="0">
+            <div class="form-text">Já tem algo guardado? Coloca aqui.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Criar cofre</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

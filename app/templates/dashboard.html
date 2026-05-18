@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Painel — MinhasFinanças{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4">Olá, {{ current_user.nome.split()[0] }} 👋</h4>
+
+<!-- Cards de resumo -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="saldo-card" style="background: linear-gradient(135deg,#4361ee,#3a0ca3);">
+      <div class="small opacity-75 mb-1"><i class="bi bi-wallet2 me-1"></i>Saldo total</div>
+      <div class="fs-3 fw-bold">R$ {{ "%.2f"|format(saldo_total) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="saldo-card" style="background: linear-gradient(135deg,#06d6a0,#028a60);">
+      <div class="small opacity-75 mb-1"><i class="bi bi-arrow-down-circle me-1"></i>Entradas do mês</div>
+      <div class="fs-3 fw-bold">R$ {{ "%.2f"|format(total_entradas) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="saldo-card" style="background: linear-gradient(135deg,#ef476f,#b5103d);">
+      <div class="small opacity-75 mb-1"><i class="bi bi-arrow-up-circle me-1"></i>Saídas do mês</div>
+      <div class="fs-3 fw-bold">R$ {{ "%.2f"|format(total_saidas) }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Contas -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bank me-2 text-primary"></i>Contas</span>
+        <a href="{{ url_for('main.contas') }}" class="btn btn-sm btn-outline-primary">Ver todas</a>
+      </div>
+      <div class="card-body">
+        {% if contas %}
+          {% for conta in contas %}
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+              <div class="fw-semibold">{{ conta.nome }}</div>
+              <small class="text-muted">{{ conta.tipo }}</small>
+            </div>
+            <div class="fw-bold text-{{ 'danger' if conta.saldo_atual < 0 else 'success' }}">
+              R$ {{ "%.2f"|format(conta.saldo_atual) }}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center py-3">Nenhuma conta cadastrada.<br>
+          <a href="{{ url_for('main.contas') }}">Adicionar conta</a></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Cofres -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-piggy-bank me-2 text-warning"></i>Cofres</span>
+        <a href="{{ url_for('main.cofres') }}" class="btn btn-sm btn-outline-warning">Ver todos</a>
+      </div>
+      <div class="card-body">
+        {% if cofres %}
+          {% for cofre in cofres %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span>{{ cofre.emoji }} {{ cofre.nome }}</span>
+              <small class="text-muted">{{ cofre.percentual }}%</small>
+            </div>
+            <div class="progress" style="height:8px;">
+              <div class="progress-bar bg-warning" style="width:{{ cofre.percentual }}%"></div>
+            </div>
+            <small class="text-muted">R$ {{ "%.2f"|format(cofre.valor_atual) }} / R$ {{ "%.2f"|format(cofre.meta) }}</small>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center py-3">Nenhum cofre criado.<br>
+          <a href="{{ url_for('main.cofres') }}">Criar cofre</a></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Últimos lançamentos -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2 text-secondary"></i>Últimos lançamentos</span>
+        <a href="{{ url_for('main.lancamentos') }}" class="btn btn-sm btn-outline-secondary">Ver todos</a>
+      </div>
+      <div class="card-body">
+        {% if ultimos %}
+          {% for l in ultimos %}
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+              <div class="fw-semibold small">{{ l.descricao }}</div>
+              <small class="text-muted">{{ l.categoria }} · {{ l.data.strftime('%d/%m') }}</small>
+            </div>
+            <span class="fw-bold small text-{{ 'success' if l.tipo == 'entrada' else 'danger' }}">
+              {{ '+' if l.tipo == 'entrada' else '-' }} R$ {{ "%.2f"|format(l.valor) }}
+            </span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted text-center py-3">Nenhum lançamento este mês.<br>
+          <a href="{{ url_for('main.lancamentos') }}">Registrar</a></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

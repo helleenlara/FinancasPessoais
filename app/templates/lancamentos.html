@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}Lançamentos — MinhasFinanças{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Lançamentos</h4>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalLancamento">
+    <i class="bi bi-plus-lg me-1"></i>Novo lançamento
+  </button>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if lancamentos %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Conta</th>
+            <th>Tipo</th>
+            <th class="text-end">Valor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lancamentos %}
+          <tr>
+            <td class="text-muted small">{{ l.data.strftime('%d/%m/%Y') }}</td>
+            <td class="fw-semibold">{{ l.descricao }}</td>
+            <td><span class="badge bg-light text-dark">{{ l.categoria }}</span></td>
+            <td class="text-muted small">{{ l.conta.nome }}</td>
+            <td>
+              <span class="badge {{ 'badge-entrada' if l.tipo == 'entrada' else 'badge-saida' }}">
+                {{ 'Entrada' if l.tipo == 'entrada' else 'Saída' }}
+              </span>
+            </td>
+            <td class="text-end fw-bold text-{{ 'success' if l.tipo == 'entrada' else 'danger' }}">
+              {{ '+' if l.tipo == 'entrada' else '-' }} R$ {{ "%.2f"|format(l.valor) }}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('main.excluir_lancamento', id=l.id) }}"
+                onsubmit="return confirm('Excluir este lançamento?')">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+      Nenhum lançamento ainda. Clique em "Novo lançamento" para começar.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal novo lançamento -->
+<div class="modal fade" id="modalLancamento" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('main.novo_lancamento') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Novo lançamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Tipo</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipo" id="tipoEntrada"
+                  value="entrada" checked onchange="atualizarCategorias()">
+                <label class="form-check-label text-success fw-semibold" for="tipoEntrada">
+                  Entrada
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tipo" id="tipoSaida"
+                  value="saida" onchange="atualizarCategorias()">
+                <label class="form-check-label text-danger fw-semibold" for="tipoSaida">
+                  Saída
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descrição</label>
+            <input type="text" name="descricao" class="form-control"
+              placeholder="Ex: Freela, Mercado..." required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Categoria</label>
+            <select name="categoria" id="selectCategoria" class="form-select" required>
+              {% for c in categorias_entrada %}
+              <option>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Conta</label>
+            <select name="conta_id" class="form-select" required>
+              {% for conta in contas %}
+              <option value="{{ conta.id }}">{{ conta.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Data</label>
+            <input type="date" name="data" class="form-control" id="inputData" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const catEntrada = {{ categorias_entrada | tojson }};
+const catSaida = {{ categorias_saida | tojson }};
+
+function atualizarCategorias() {
+  const tipo = document.querySelector('input[name="tipo"]:checked').value;
+  const sel = document.getElementById('selectCategoria');
+  const cats = tipo === 'entrada' ? catEntrada : catSaida;
+  sel.innerHTML = cats.map(c => `<option>${c}</option>`).join('');
+}
+
+// Define a data de hoje automaticamente
+document.getElementById('inputData').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}
