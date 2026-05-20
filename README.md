@@ -47,12 +47,14 @@ python run.py
 Acesse: http://localhost:5000
 
 ## 📁 Estrutura do projeto
+
+```text
 FinancasPessoais/
 │
 ├── app/
 │   ├── templates/      ← páginas HTML
 │   ├── static/         ← CSS próprio
-│   ├── init.py     ← inicializa o app
+│   ├── __init__.py     ← inicializa o app
 │   ├── models.py       ← tabelas do banco
 │   ├── routes.py       ← rotas principais
 │   └── auth.py         ← login e registro
@@ -62,6 +64,7 @@ FinancasPessoais/
 ├── requirements.txt    ← dependências
 ├── Procfile            ← configuração do deploy
 └── runtime.txt         ← versão do Python
+```
 
 ## 👩‍💻 Autora
 
