@@ -6,7 +6,7 @@ App web de finanças pessoais desenvolvido com Python/Flask para a disciplina **
 👉 https://financaspessoais-mt7o.onrender.com
 
 ## 🎞 Apresentação do projeto
-👉 https://canva.link/zvkk1kfbes6zz4b
+👉 https://canva.link/sd8l07hf2lej88p
 
 ## 📋 Sobre o projeto
 
