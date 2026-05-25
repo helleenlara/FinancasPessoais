@@ -5,6 +5,9 @@ App web de finanças pessoais desenvolvido com Python/Flask para a disciplina **
 ## 🌐 Acesse o app
 👉 https://financaspessoais-mt7o.onrender.com
 
+## 🎞 Apresentação do projeto
+👉 https://canva.link/zvkk1kfbes6zz4b
+
 ## 📋 Sobre o projeto
 
 App criado para resolver um problema real do dia a dia: controlar múltiplas contas bancárias, registrar entradas e saídas de diferentes fontes e guardar dinheiro por objetivos (cofres).
