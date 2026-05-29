@@ -10,14 +10,17 @@ App web de finanças pessoais desenvolvido com Python/Flask para a disciplina **
 
 ## 📋 Sobre o projeto
 
-App criado para resolver um problema real do dia a dia: controlar múltiplas contas bancárias, registrar entradas e saídas de diferentes fontes e guardar dinheiro por objetivos (cofres).
+App criado para resolver um problema real do dia a dia: controlar múltiplas contas bancárias, registrar entradas e saídas de diferentes fontes, guardar dinheiro por objetivos e acompanhar gastos fixos e cartões de crédito — tudo em um só lugar, de graça.
 
 ## ✅ Funcionalidades
 
-- 🔐 Login e cadastro de usuário
+- 🔐 Login e cadastro de usuário com senha criptografada
 - 🏦 Gerenciamento de contas bancárias (CRUD)
 - 💸 Registro de lançamentos por categoria (CRUD)
+- 🔄 Transferências entre contas e cofres
 - 🐷 Cofres com metas e barra de progresso
+- 💳 Cartões de crédito com fatura e compras detalhadas
+- 📌 Gastos fixos mensais com status pago/pendente
 - 📊 Relatório mensal por categoria
 - 📱 Interface responsiva — funciona no celular
 
@@ -71,4 +74,4 @@ FinancasPessoais/
 
 ## 👩‍💻 Autora
 
-**Lara Hellen** — UniRuy/Wyden 2026.1
+**Lara Hellen Marques** — UniRuy/Wyden 2026.1
