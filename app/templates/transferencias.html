@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}Transferências — MinhasFinanças{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Transferências</h4>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransferencia">
+    <i class="bi bi-plus-lg me-1"></i>Nova transferência
+  </button>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if historico %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Tipo</th>
+            <th class="text-end">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in historico %}
+          <tr>
+            <td class="text-muted small">{{ t.data.strftime('%d/%m/%Y') }}</td>
+            <td class="fw-semibold">{{ t.descricao }}</td>
+            <td>
+              {% if t.tipo == 'conta_conta' %}
+                <span class="badge bg-light text-dark">Conta → Conta</span>
+              {% elif t.tipo == 'conta_cofre' %}
+                <span class="badge bg-light text-dark">Conta → Cofre</span>
+              {% else %}
+                <span class="badge bg-light text-dark">Cofre → Conta</span>
+              {% endif %}
+            </td>
+            <td class="text-end fw-bold text-primary">R$ {{ "%.2f"|format(t.valor) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-arrow-left-right fs-1 d-block mb-3"></i>
+      Nenhuma transferência ainda.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal transferência -->
+<div class="modal fade" id="modalTransferencia" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('main.nova_transferencia') }}" id="formTransf">
+        <div class="modal-header">
+          <h5 class="modal-title">Nova transferência</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Tipo -->
+          <div class="mb-3">
+            <label class="form-label">Tipo de transferência</label>
+            <select name="tipo" id="tipoTransf" class="form-select" onchange="atualizarCampos()">
+              <option value="conta_conta">Conta → Conta</option>
+              <option value="conta_cofre">Conta → Cofre</option>
+              <option value="cofre_conta">Cofre → Conta</option>
+            </select>
+          </div>
+
+          <!-- Conta A para Conta B -->
+          <div id="campos_conta_conta">
+            <div class="mb-3">
+              <label class="form-label">Conta de origem</label>
+              <select name="conta_origem_id" class="form-select">
+                {% for c in contas %}
+                <option value="{{ c.id }}">{{ c.nome }} (R$ {{ "%.2f"|format(c.saldo_atual) }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Conta de destino</label>
+              <select name="conta_destino_id" class="form-select">
+                {% for c in contas %}
+                <option value="{{ c.id }}">{{ c.nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Conta para Cofre -->
+          <div id="campos_conta_cofre" style="display:none;">
+            <div class="mb-3">
+              <label class="form-label">Conta de origem</label>
+              <select name="conta_id" class="form-select">
+                {% for c in contas %}
+                <option value="{{ c.id }}">{{ c.nome }} (R$ {{ "%.2f"|format(c.saldo_atual) }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Cofre de destino</label>
+              <select name="cofre_id" class="form-select">
+                {% for c in cofres %}
+                <option value="{{ c.id }}">{{ c.emoji }} {{ c.nome }} ({{ c.percentual }}%)</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Cofre para Conta -->
+          <div id="campos_cofre_conta" style="display:none;">
+            <div class="mb-3">
+              <label class="form-label">Cofre de origem</label>
+              <select name="cofre_id" class="form-select">
+                {% for c in cofres %}
+                <option value="{{ c.id }}">{{ c.emoji }} {{ c.nome }} (R$ {{ "%.2f"|format(c.valor_atual) }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Conta de destino</label>
+              <select name="conta_id" class="form-select">
+                {% for c in contas %}
+                <option value="{{ c.id }}">{{ c.nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" min="0.01" name="valor" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descrição (opcional)</label>
+            <input type="text" name="descricao" class="form-control" placeholder="Ex: Guardando para viagem">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Data</label>
+            <input type="date" name="data" id="dataTransf" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Transferir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('dataTransf').value = new Date().toISOString().split('T')[0];
+
+function atualizarCampos() {
+  const tipo = document.getElementById('tipoTransf').value;
+  document.getElementById('campos_conta_conta').style.display = tipo === 'conta_conta' ? '' : 'none';
+  document.getElementById('campos_conta_cofre').style.display = tipo === 'conta_cofre' ? '' : 'none';
+  document.getElementById('campos_cofre_conta').style.display = tipo === 'cofre_conta' ? '' : 'none';
+}
+</script>
+{% endblock %}

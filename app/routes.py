@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app import db
-from app.models import Conta, Lancamento, Cofre
+from app.models import Conta, Lancamento, Cofre, Transferencia, CartaoCredito, CompraCartao, GastoFixo
 from datetime import datetime, date
 
 main = Blueprint('main', __name__)
@@ -192,3 +192,177 @@ def relatorio():
         total_saidas=total_saidas,
         por_categoria=por_categoria
     )
+
+# ─── TRANSFERÊNCIAS ──────────────────────────────────────────
+@main.route('/transferencias')
+@login_required
+def transferencias():
+    contas = Conta.query.filter_by(usuario_id=current_user.id).all()
+    cofres = Cofre.query.filter_by(usuario_id=current_user.id).all()
+    historico = Transferencia.query.filter_by(usuario_id=current_user.id).order_by(Transferencia.data.desc()).all()
+    return render_template('transferencias.html', contas=contas, cofres=cofres, historico=historico)
+
+@main.route('/transferencias/nova', methods=['POST'])
+@login_required
+def nova_transferencia():
+    tipo = request.form.get('tipo')
+    valor = float(request.form.get('valor'))
+    descricao = request.form.get('descricao', '')
+    data = datetime.strptime(request.form.get('data'), '%Y-%m-%d').date()
+
+    if tipo == 'conta_conta':
+        origem_id = int(request.form.get('conta_origem_id'))
+        destino_id = int(request.form.get('conta_destino_id'))
+        origem = Conta.query.filter_by(id=origem_id, usuario_id=current_user.id).first_or_404()
+        destino = Conta.query.filter_by(id=destino_id, usuario_id=current_user.id).first_or_404()
+        # Registra saída na origem
+        db.session.add(Lancamento(descricao=f'Transferência para {destino.nome}', valor=valor, tipo='saida', categoria='Transferência', data=data, conta_id=origem_id, usuario_id=current_user.id))
+        # Registra entrada no destino
+        db.session.add(Lancamento(descricao=f'Transferência de {origem.nome}', valor=valor, tipo='entrada', categoria='Transferência', data=data, conta_id=destino_id, usuario_id=current_user.id))
+        t = Transferencia(valor=valor, descricao=descricao or f'{origem.nome} → {destino.nome}', data=data, tipo='conta_conta', conta_origem_id=origem_id, conta_destino_id=destino_id, usuario_id=current_user.id)
+
+    elif tipo == 'conta_cofre':
+        conta_id = int(request.form.get('conta_id'))
+        cofre_id = int(request.form.get('cofre_id'))
+        Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
+        cofre = Cofre.query.filter_by(id=cofre_id, usuario_id=current_user.id).first_or_404()
+        db.session.add(Lancamento(descricao=f'Depósito no cofre {cofre.nome}', valor=valor, tipo='saida', categoria='Transferência', data=data, conta_id=conta_id, usuario_id=current_user.id))
+        cofre.valor_atual += valor
+        t = Transferencia(valor=valor, descricao=descricao or f'Conta → {cofre.nome}', data=data, tipo='conta_cofre', conta_origem_id=conta_id, cofre_id=cofre_id, usuario_id=current_user.id)
+
+    elif tipo == 'cofre_conta':
+        cofre_id = int(request.form.get('cofre_id'))
+        conta_id = int(request.form.get('conta_id'))
+        cofre = Cofre.query.filter_by(id=cofre_id, usuario_id=current_user.id).first_or_404()
+        Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
+        cofre.valor_atual = max(0, cofre.valor_atual - valor)
+        db.session.add(Lancamento(descricao=f'Retirada do cofre {cofre.nome}', valor=valor, tipo='entrada', categoria='Transferência', data=data, conta_id=conta_id, usuario_id=current_user.id))
+        t = Transferencia(valor=valor, descricao=descricao or f'{cofre.nome} → Conta', data=data, tipo='cofre_conta', conta_destino_id=conta_id, cofre_id=cofre_id, usuario_id=current_user.id)
+
+    db.session.add(t)
+    db.session.commit()
+    flash('Transferência realizada!', 'success')
+    return redirect(url_for('main.transferencias'))
+
+
+# ─── CARTÕES DE CRÉDITO ──────────────────────────────────────
+@main.route('/cartoes')
+@login_required
+def cartoes():
+    cartoes = CartaoCredito.query.filter_by(usuario_id=current_user.id).all()
+    return render_template('cartoes.html', cartoes=cartoes,
+                           categorias=Lancamento.CATEGORIAS_SAIDA)
+
+@main.route('/cartoes/novo', methods=['POST'])
+@login_required
+def novo_cartao():
+    cartao = CartaoCredito(
+        nome=request.form['nome'],
+        limite=float(request.form.get('limite', 0)),
+        dia_vencimento=int(request.form['dia_vencimento']),
+        usuario_id=current_user.id
+    )
+    db.session.add(cartao)
+    db.session.commit()
+    flash('Cartão cadastrado!', 'success')
+    return redirect(url_for('main.cartoes'))
+
+@main.route('/cartoes/excluir/<int:id>', methods=['POST'])
+@login_required
+def excluir_cartao(id):
+    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    db.session.delete(cartao)
+    db.session.commit()
+    flash('Cartão excluído.', 'info')
+    return redirect(url_for('main.cartoes'))
+
+@main.route('/cartoes/<int:id>/compras')
+@login_required
+def compras_cartao(id):
+    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    mes = request.args.get('mes', date.today().month, type=int)
+    ano = request.args.get('ano', date.today().year, type=int)
+    compras = CompraCartao.query.filter_by(cartao_id=id, usuario_id=current_user.id).filter(
+        db.extract('month', CompraCartao.data) == mes,
+        db.extract('year', CompraCartao.data) == ano
+    ).order_by(CompraCartao.data.desc()).all()
+    total = sum(c.valor for c in compras)
+    return render_template('compras_cartao.html', cartao=cartao, compras=compras,
+                           total=total, mes=mes, ano=ano,
+                           categorias=Lancamento.CATEGORIAS_SAIDA)
+
+@main.route('/cartoes/<int:id>/compras/nova', methods=['POST'])
+@login_required
+def nova_compra_cartao(id):
+    CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    compra = CompraCartao(
+        descricao=request.form['descricao'],
+        valor=float(request.form['valor']),
+        categoria=request.form['categoria'],
+        data=datetime.strptime(request.form['data'], '%Y-%m-%d').date(),
+        parcelas=int(request.form.get('parcelas', 1)),
+        cartao_id=id,
+        usuario_id=current_user.id
+    )
+    db.session.add(compra)
+    db.session.commit()
+    flash('Compra registrada!', 'success')
+    return redirect(url_for('main.compras_cartao', id=id))
+
+@main.route('/cartoes/compras/excluir/<int:id>', methods=['POST'])
+@login_required
+def excluir_compra(id):
+    compra = CompraCartao.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    cartao_id = compra.cartao_id
+    db.session.delete(compra)
+    db.session.commit()
+    flash('Compra excluída.', 'info')
+    return redirect(url_for('main.compras_cartao', id=cartao_id))
+
+
+# ─── GASTOS FIXOS ────────────────────────────────────────────
+@main.route('/gastos-fixos')
+@login_required
+def gastos_fixos():
+    gastos = GastoFixo.query.filter_by(usuario_id=current_user.id).order_by(GastoFixo.dia_vencimento).all()
+    total = sum(g.valor for g in gastos)
+    total_pago = sum(g.valor for g in gastos if g.pago)
+    total_pendente = sum(g.valor for g in gastos if not g.pago)
+    return render_template('gastos_fixos.html', gastos=gastos,
+                           total=total, total_pago=total_pago,
+                           total_pendente=total_pendente,
+                           categorias=Lancamento.CATEGORIAS_SAIDA)
+
+@main.route('/gastos-fixos/novo', methods=['POST'])
+@login_required
+def novo_gasto_fixo():
+    gasto = GastoFixo(
+        nome=request.form['nome'],
+        valor=float(request.form['valor']),
+        categoria=request.form['categoria'],
+        dia_vencimento=int(request.form['dia_vencimento']),
+        usuario_id=current_user.id
+    )
+    db.session.add(gasto)
+    db.session.commit()
+    flash('Gasto fixo cadastrado!', 'success')
+    return redirect(url_for('main.gastos_fixos'))
+
+@main.route('/gastos-fixos/pagar/<int:id>', methods=['POST'])
+@login_required
+def pagar_gasto_fixo(id):
+    gasto = GastoFixo.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    gasto.pago = not gasto.pago
+    db.session.commit()
+    status = 'pago' if gasto.pago else 'pendente'
+    flash(f'{gasto.nome} marcado como {status}.', 'success')
+    return redirect(url_for('main.gastos_fixos'))
+
+@main.route('/gastos-fixos/excluir/<int:id>', methods=['POST'])
+@login_required
+def excluir_gasto_fixo(id):
+    gasto = GastoFixo.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    db.session.delete(gasto)
+    db.session.commit()
+    flash('Gasto fixo excluído.', 'info')
+    return redirect(url_for('main.gastos_fixos'))
