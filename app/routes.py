@@ -104,7 +104,6 @@ def novo_lancamento():
     data = datetime.strptime(request.form['data'], '%Y-%m-%d').date()
 
     if origem.startswith('cartao_'):
-        # Lança como compra no cartão
         cartao_id = int(origem.replace('cartao_', ''))
         CartaoCredito.query.filter_by(id=cartao_id, usuario_id=current_user.id).first_or_404()
         compra = CompraCartao(
@@ -120,7 +119,6 @@ def novo_lancamento():
         db.session.commit()
         flash('Lançamento registrado no cartão!', 'success')
     else:
-        # Lança normal na conta
         conta_id = int(origem.replace('conta_', ''))
         Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
         lancamento = Lancamento(
@@ -245,9 +243,7 @@ def nova_transferencia():
         destino_id = int(request.form.get('conta_destino_id'))
         origem = Conta.query.filter_by(id=origem_id, usuario_id=current_user.id).first_or_404()
         destino = Conta.query.filter_by(id=destino_id, usuario_id=current_user.id).first_or_404()
-        # Registra saída na origem
         db.session.add(Lancamento(descricao=f'Transferência para {destino.nome}', valor=valor, tipo='saida', categoria='Transferência', data=data, conta_id=origem_id, usuario_id=current_user.id))
-        # Registra entrada no destino
         db.session.add(Lancamento(descricao=f'Transferência de {origem.nome}', valor=valor, tipo='entrada', categoria='Transferência', data=data, conta_id=destino_id, usuario_id=current_user.id))
         t = Transferencia(valor=valor, descricao=descricao or f'{origem.nome} → {destino.nome}', data=data, tipo='conta_conta', conta_origem_id=origem_id, conta_destino_id=destino_id, usuario_id=current_user.id)
 
@@ -274,7 +270,6 @@ def nova_transferencia():
     flash('Transferência realizada!', 'success')
     return redirect(url_for('main.transferencias'))
 
-
 # ─── CARTÕES DE CRÉDITO ──────────────────────────────────────
 @main.route('/cartoes')
 @login_required
@@ -297,6 +292,32 @@ def novo_cartao():
     flash('Cartão cadastrado!', 'success')
     return redirect(url_for('main.cartoes'))
 
+@main.route('/cartoes/excluir/<int:id>', methods=['POST'])
+@login_required
+def excluir_cartao(id):
+    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    db.session.delete(cartao)
+    db.session.commit()
+    flash('Cartão excluído.', 'info')
+    return redirect(url_for('main.cartoes'))
+
+@main.route('/cartoes/<int:id>/compras')
+@login_required
+def compras_cartao(id):
+    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    mes = request.args.get('mes', date.today().month, type=int)
+    ano = request.args.get('ano', date.today().year, type=int)
+    compras = CompraCartao.query.filter_by(cartao_id=id, usuario_id=current_user.id).filter(
+        db.extract('month', CompraCartao.data) == mes,
+        db.extract('year', CompraCartao.data) == ano
+    ).order_by(CompraCartao.data.desc()).all()
+    total = sum(c.valor for c in compras)
+    contas = Conta.query.filter_by(usuario_id=current_user.id).all()
+    return render_template('compras_cartao.html', cartao=cartao, compras=compras,
+                           total=total, mes=mes, ano=ano,
+                           categorias=Lancamento.CATEGORIAS_SAIDA,
+                           contas=contas)
+
 @main.route('/cartoes/<int:id>/pagar-fatura', methods=['POST'])
 @login_required
 def pagar_fatura(id):
@@ -318,33 +339,6 @@ def pagar_fatura(id):
     db.session.commit()
     flash(f'Fatura de R$ {"%.2f" % valor} paga com sucesso!', 'success')
     return redirect(url_for('main.compras_cartao', id=id))
-
-@main.route('/cartoes/excluir/<int:id>', methods=['POST'])
-@login_required
-def excluir_cartao(id):
-    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
-    db.session.delete(cartao)
-    db.session.commit()
-    flash('Cartão excluído.', 'info')
-    return redirect(url_for('main.cartoes'))
-
-
-@main.route('/cartoes/<int:id>/compras')
-@login_required
-def compras_cartao(id):
-    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
-    mes = request.args.get('mes', date.today().month, type=int)
-    ano = request.args.get('ano', date.today().year, type=int)
-    compras = CompraCartao.query.filter_by(cartao_id=id, usuario_id=current_user.id).filter(
-        db.extract('month', CompraCartao.data) == mes,
-        db.extract('year', CompraCartao.data) == ano
-    ).order_by(CompraCartao.data.desc()).all()
-    total = sum(c.valor for c in compras)
-    contas = Conta.query.filter_by(usuario_id=current_user.id).all()
-    return render_template('compras_cartao.html', cartao=cartao, compras=compras,
-                           total=total, mes=mes, ano=ano,
-                           categorias=Lancamento.CATEGORIAS_SAIDA,
-                           contas=contas)
 
 @main.route('/cartoes/<int:id>/compras/nova', methods=['POST'])
 @login_required
@@ -373,7 +367,6 @@ def excluir_compra(id):
     db.session.commit()
     flash('Compra excluída.', 'info')
     return redirect(url_for('main.compras_cartao', id=cartao_id))
-
 
 # ─── GASTOS FIXOS ────────────────────────────────────────────
 @main.route('/gastos-fixos')
@@ -446,19 +439,48 @@ def processar_importacao():
 
     try:
         if nome.endswith('.csv'):
-            conteudo = arquivo.read().decode('utf-8', errors='ignore')
-            reader = csv.DictReader(io.StringIO(conteudo))
+            conteudo = None
+            for enc in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
+                try:
+                    arquivo.seek(0)
+                    conteudo = arquivo.read().decode(enc, errors='ignore')
+                    break
+                except Exception:
+                    continue
+
+            sep = ';' if conteudo.count(';') > conteudo.count(',') else ','
+            linhas = conteudo.splitlines()
+
+            # Encontra a linha do cabeçalho real
+            header_idx = 0
+            palavras_header = ['date', 'data', 'release', 'transaction', 'descri', 'histor', 'memo', 'lancamento']
+            for i, linha in enumerate(linhas):
+                linha_lower = linha.lower()
+                if any(p in linha_lower for p in palavras_header):
+                    header_idx = i
+                    break
+
+            conteudo_util = '\n'.join(linhas[header_idx:])
+            reader = csv.DictReader(io.StringIO(conteudo_util), delimiter=sep)
             for row in reader:
-                transacoes.append(dict(row))
+                if any(v.strip() for v in row.values() if v):
+                    transacoes.append(dict(row))
 
         elif nome.endswith('.xlsx'):
-            import openpyxl
-            wb = openpyxl.load_workbook(arquivo)
-            ws = wb.active
-            headers = [str(c.value).strip() if c.value else '' for c in ws[1]]
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                if any(row):
-                    transacoes.append(dict(zip(headers, row)))
+            try:
+                import openpyxl
+                arquivo.seek(0)
+                wb = openpyxl.load_workbook(arquivo)
+                ws = wb.active
+                headers = []
+                for c in ws[1]:
+                    headers.append(str(c.value).strip() if c.value is not None else f'col_{c.column}')
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if any(v is not None for v in row):
+                        transacoes.append(dict(zip(headers, [str(v) if v is not None else '' for v in row])))
+            except ImportError:
+                flash('Para importar XLSX instale openpyxl: pip install openpyxl', 'danger')
+                return redirect(url_for('main.importar'))
         else:
             flash('Formato inválido. Use .csv ou .xlsx', 'danger')
             return redirect(url_for('main.importar'))
@@ -467,9 +489,126 @@ def processar_importacao():
         flash(f'Erro ao ler o arquivo: {str(e)}', 'danger')
         return redirect(url_for('main.importar'))
 
-    # Salva na sessão para revisar antes de confirmar
+    if not transacoes:
+        flash('Nenhuma transação encontrada no arquivo.', 'warning')
+        return redirect(url_for('main.importar'))
+
     import json
     from flask import session
+
+    transacoes_normalizadas = []
+
+    if transacoes:
+        colunas = list(transacoes[0].keys())
+
+        # Detecta coluna de data
+        col_data = None
+        for c in colunas:
+            if any(p in c.lower() for p in ['date', 'data', 'release', 'dt_']):
+                col_data = c
+                break
+
+        # Detecta coluna de descrição
+        col_desc = None
+        for c in colunas:
+            if any(p in c.lower() for p in ['descri', 'histor', 'memo', 'transaction_type', 'type', 'tipo', 'estabeleci', 'lancamento']):
+                col_desc = c
+                break
+
+        # Detecta coluna de valor
+        col_valor = None
+        for c in colunas:
+            if any(p in c.lower() for p in ['net_amount', 'valor', 'amount', 'value', 'quantia', 'vlr']):
+                col_valor = c
+                break
+        if not col_valor:
+            for c in colunas:
+                if any(p in c.lower() for p in ['credit', 'debit', 'saldo', 'balance']):
+                    col_valor = c
+                    break
+
+        for t in transacoes:
+            try:
+                # Descrição
+                desc = ''
+                if col_desc and t.get(col_desc):
+                    desc = str(t[col_desc]).strip()
+                if not desc:
+                    desc = ' | '.join(str(v) for v in t.values() if v and str(v).strip())[:60]
+
+                # Valor
+                val_raw = str(t.get(col_valor, '') or '').strip()
+                val_raw = val_raw.replace('R$', '').replace(' ', '')
+                if ',' in val_raw and '.' in val_raw:
+                    val_raw = val_raw.replace('.', '').replace(',', '.')
+                elif ',' in val_raw:
+                    val_raw = val_raw.replace(',', '.')
+                try:
+                    valor = float(val_raw)
+                except Exception:
+                    valor = 0.0
+
+                # Tipo — negativo = saída, positivo = entrada
+                if valor < 0:
+                    tipo = 'saida'
+                    valor = abs(valor)
+                else:
+                    tipo = 'entrada'
+
+                if valor == 0:
+                    continue
+
+                # Ajusta tipo pela descrição
+                desc_lower = desc.lower()
+                if any(p in desc_lower for p in ['pagamento', 'compra', 'pix enviado', 'débito', 'debito', 'saque', 'retirado', 'reservado', 'uber', 'ifood']):
+                    tipo = 'saida'
+                elif any(p in desc_lower for p in ['pix recebido', 'crédito', 'credito', 'salário', 'salario', 'rendimento', 'venda', 'depósito', 'deposito']):
+                    tipo = 'entrada'
+
+                # Data
+                data_raw = str(t.get(col_data, '') or '').strip()
+                data_fmt = ''
+                if data_raw:
+                    for fmt in ['%d-%m-%Y', '%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y', '%d-%m-%y', '%d/%m/%y']:
+                        try:
+                            from datetime import datetime as dt_parse
+                            data_fmt = dt_parse.strptime(data_raw[:10], fmt).strftime('%Y-%m-%d')
+                            break
+                        except Exception:
+                            continue
+
+                # Categoria automática
+                categoria = 'Outros'
+                if any(p in desc_lower for p in ['mercado', 'supermercado', 'alimenta', 'restaurante', 'lanche', 'ifood', 'rappi', 'padaria', 'açougue']):
+                    categoria = 'Alimentação'
+                elif any(p in desc_lower for p in ['uber', 'transporte', '99', 'posto', 'combustivel', 'onibus', 'metro', 'taxi']):
+                    categoria = 'Transporte'
+                elif any(p in desc_lower for p in ['aluguel', 'condominio', 'luz', 'agua', 'internet', 'energia', 'moradia']):
+                    categoria = 'Moradia'
+                elif any(p in desc_lower for p in ['farmacia', 'medico', 'hospital', 'saude', 'plano']):
+                    categoria = 'Saúde'
+                elif any(p in desc_lower for p in ['netflix', 'spotify', 'cinema', 'lazer', 'show', 'disney', 'youtube']):
+                    categoria = 'Lazer'
+                elif any(p in desc_lower for p in ['roupa', 'loja', 'shopping', 'zara', 'renner', 'riachuelo']):
+                    categoria = 'Roupas'
+                elif any(p in desc_lower for p in ['escola', 'faculdade', 'curso', 'educacao', 'livro', 'ensino']):
+                    categoria = 'Educação'
+                elif any(p in desc_lower for p in ['pix enviado', 'transferencia', 'ted', 'doc']):
+                    categoria = 'Transferência para terceiros'
+
+                transacoes_normalizadas.append({
+                    'descricao': desc[:80],
+                    'valor': round(valor, 2),
+                    'tipo': tipo,
+                    'data': data_fmt,
+                    'categoria': categoria
+                })
+
+            except Exception:
+                continue
+
+    transacoes = transacoes_normalizadas if transacoes_normalizadas else transacoes
+
     session['transacoes_importadas'] = json.dumps(transacoes[:50], default=str)
     session['importar_conta_id'] = conta_id
     session['importar_tipo_origem'] = tipo_origem
