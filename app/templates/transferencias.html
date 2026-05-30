@@ -3,9 +3,8 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Transferências</h4>
-  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransferencia">
-    <i class="bi bi-plus-lg me-1"></i>Nova transferência
+<h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Movimentações entre contas e cofres</h4>  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransferencia">
+    <i class="bi bi-plus-lg me-1"></i>Nova Movimentação
   </button>
 </div>
 
@@ -29,11 +28,11 @@
             <td class="fw-semibold">{{ t.descricao }}</td>
             <td>
               {% if t.tipo == 'conta_conta' %}
-                <span class="badge bg-light text-dark">Conta → Conta</span>
+                <span class="badge bg-light text-dark">Entre minhas contas</span>
               {% elif t.tipo == 'conta_cofre' %}
-                <span class="badge bg-light text-dark">Conta → Cofre</span>
+                <span class="badge bg-success text-white">Guardado no cofre</span>
               {% else %}
-                <span class="badge bg-light text-dark">Cofre → Conta</span>
+                <span class="badge bg-warning text-dark">Retirado do cofre</span>
               {% endif %}
             </td>
             <td class="text-end fw-bold text-primary">R$ {{ "%.2f"|format(t.valor) }}</td>
@@ -63,12 +62,12 @@
         <div class="modal-body">
 
           <!-- Tipo -->
-          <div class="mb-3">
-            <label class="form-label">Tipo de transferência</label>
+         <div class="mb-3">
+            <label class="form-label">O que você quer fazer?</label>
             <select name="tipo" id="tipoTransf" class="form-select" onchange="atualizarCampos()">
-              <option value="conta_conta">Conta → Conta</option>
-              <option value="conta_cofre">Conta → Cofre</option>
-              <option value="cofre_conta">Cofre → Conta</option>
+              <option value="conta_conta">Mover dinheiro entre minhas contas</option>
+              <option value="conta_cofre">Guardar dinheiro num cofre</option>
+              <option value="cofre_conta">Retirar dinheiro de um cofre</option>
             </select>
           </div>
 
