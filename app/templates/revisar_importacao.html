@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}Revisar Importação — MinhasFinanças{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-check2-square me-2 text-primary"></i>Revisar transações</h4>
+  <a href="{{ url_for('main.importar') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Voltar
+  </a>
+</div>
+
+<div class="alert alert-warning mb-4">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  Revise as transações abaixo antes de salvar. Você pode editar descrição, valor, tipo e categoria.
+  Desmarque as que não quer importar.
+</div>
+
+{% if transacoes %}
+<form method="POST" action="{{ url_for('main.confirmar_importacao') }}">
+  <input type="hidden" name="conta_id" value="{{ conta_id }}">
+  <input type="hidden" name="tipo_origem" value="{{ tipo_origem }}">
+
+  <div class="card mb-4">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:40px;">
+                <input type="checkbox" id="marcarTodos" checked
+                  onchange="toggleTodos(this.checked)">
+              </th>
+              <th>Descrição</th>
+              <th style="width:120px;">Valor (R$)</th>
+              {% if tipo_origem == 'conta' %}
+              <th style="width:110px;">Tipo</th>
+              {% endif %}
+              <th style="width:160px;">Categoria</th>
+              <th style="width:140px;">Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in transacoes %}
+            {% set idx = loop.index0 %}
+            <tr id="linha_{{ idx }}">
+              <td>
+                <input type="checkbox" name="incluir" value="{{ idx }}"
+                  checked onchange="toggleLinha({{ idx }}, this.checked)">
+              </td>
+              <td>
+                {% set desc = '' %}
+                {% for key in t.keys() %}
+                  {% if 'descri' in key|lower or 'memo' in key|lower or 'histor' in key|lower or 'estabeleci' in key|lower %}
+                    {% set desc = t[key] %}
+                  {% endif %}
+                {% endfor %}
+                {% if not desc %}
+                  {% set desc = t.values()|list|first %}
+                {% endif %}
+                <input type="text" name="descricao" value="{{ desc|string|truncate(50) }}"
+                  class="form-control form-control-sm">
+              </td>
+              <td>
+                {% set val = '' %}
+                {% for key in t.keys() %}
+                  {% if 'valor' in key|lower or 'value' in key|lower or 'amount' in key|lower or 'quantia' in key|lower %}
+                    {% set val = t[key] %}
+                  {% endif %}
+                {% endfor %}
+                {% if not val %}
+                  {% set vals = t.values()|list %}
+                  {% if vals|length > 1 %}{% set val = vals[1] %}{% endif %}
+                {% endif %}
+                <input type="number" step="0.01" min="0" name="valor"
+                  value="{{ val|string|replace('-','')|replace('R$','')|replace(' ','')|truncate(12,True,'') }}"
+                  class="form-control form-control-sm">
+              </td>
+              {% if tipo_origem == 'conta' %}
+              <td>
+                <select name="tipo" class="form-select form-select-sm">
+                  <option value="saida">Saída</option>
+                  <option value="entrada">Entrada</option>
+                </select>
+              </td>
+              {% endif %}
+              <td>
+                <select name="categoria" class="form-select form-select-sm">
+                  {% if tipo_origem == 'conta' %}
+                    {% for c in categorias_saida %}
+                    <option>{{ c }}</option>
+                    {% endfor %}
+                  {% else %}
+                    {% for c in categorias_saida %}
+                    <option>{{ c }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td>
+                {% set dt = '' %}
+                {% for key in t.keys() %}
+                  {% if 'data' in key|lower or 'date' in key|lower or 'dt' in key|lower %}
+                    {% set dt = t[key] %}
+                  {% endif %}
+                {% endfor %}
+                <input type="date" name="data"
+                  value="{{ dt|string|truncate(10,True,'') if dt else '' }}"
+                  class="form-control form-control-sm">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-3 justify-content-end">
+    <a href="{{ url_for('main.importar') }}" class="btn btn-outline-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary px-4 fw-semibold">
+      <i class="bi bi-check-lg me-1"></i>Salvar transações selecionadas
+    </button>
+  </div>
+</form>
+
+{% else %}
+<div class="card text-center py-5 text-muted">
+  <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+  Nenhuma transação encontrada no arquivo. Verifique o formato e tente novamente.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleTodos(checked) {
+  document.querySelectorAll('input[name="incluir"]').forEach(cb => {
+    cb.checked = checked;
+    toggleLinha(cb.value, checked);
+  });
+}
+
+function toggleLinha(idx, checked) {
+  const linha = document.getElementById('linha_' + idx);
+  if (linha) {
+    linha.style.opacity = checked ? '1' : '0.4';
+    linha.querySelectorAll('input, select').forEach(el => {
+      if (el.name !== 'incluir') el.disabled = !checked;
+    });
+  }
+}
+</script>
+{% endblock %}

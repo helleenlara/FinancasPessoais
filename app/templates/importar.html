@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Importar Extrato — MinhasFinanças{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-upload me-2 text-primary"></i>Importar Extrato</h4>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-body p-4">
+
+        <div class="alert alert-info mb-4">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Como funciona:</strong> Suba o extrato da sua conta ou cartão em formato
+          <strong>.csv</strong> ou <strong>.xlsx</strong>. O app vai ler as transações e
+          deixar você revisar antes de salvar.
+        </div>
+
+        <form method="POST" action="{{ url_for('main.processar_importacao') }}"
+          enctype="multipart/form-data">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tipo de extrato</label>
+            <select name="tipo_origem" id="tipoOrigem" class="form-select"
+              onchange="atualizarDestino()">
+              <option value="conta">Extrato de conta bancária</option>
+              <option value="cartao">Fatura de cartão de crédito</option>
+            </select>
+          </div>
+
+          <div class="mb-3" id="selConta">
+            <label class="form-label fw-semibold">Qual conta?</label>
+            <select name="conta_id" class="form-select">
+              {% for c in contas %}
+              <option value="{{ c.id }}">{{ c.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3" id="selCartao" style="display:none;">
+            <label class="form-label fw-semibold">Qual cartão?</label>
+            <select name="conta_id" class="form-select">
+              {% for c in cartoes %}
+              <option value="{{ c.id }}">{{ c.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Arquivo (.csv ou .xlsx)</label>
+            <input type="file" name="arquivo" class="form-control"
+              accept=".csv,.xlsx" required>
+            <div class="form-text">
+              Exporta o extrato direto do app do seu banco e sobe aqui.
+            </div>
+          </div>
+
+          <!-- Dicas por banco -->
+          <div class="accordion mb-4" id="dicasBancos">
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#dicasCollapse">
+                  <i class="bi bi-lightbulb me-2 text-warning"></i>
+                  Como exportar o extrato de cada banco
+                </button>
+              </h2>
+              <div id="dicasCollapse" class="accordion-collapse collapse">
+                <div class="accordion-body">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div class="p-3 bg-light rounded">
+                        <strong>Nubank</strong><br>
+                        <small class="text-muted">App → Me → Exportar extrato → CSV</small>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="p-3 bg-light rounded">
+                        <strong>Inter</strong><br>
+                        <small class="text-muted">App → Extrato → Exportar → CSV</small>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="p-3 bg-light rounded">
+                        <strong>Itaú</strong><br>
+                        <small class="text-muted">Internet Banking → Extrato → Salvar CSV</small>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="p-3 bg-light rounded">
+                        <strong>Outros bancos</strong><br>
+                        <small class="text-muted">Procura "exportar extrato" ou "baixar CSV" no app</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+            <i class="bi bi-upload me-2"></i>Carregar e revisar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function atualizarDestino() {
+  const tipo = document.getElementById('tipoOrigem').value;
+  document.getElementById('selConta').style.display = tipo === 'conta' ? '' : 'none';
+  document.getElementById('selCartao').style.display = tipo === 'cartao' ? '' : 'none';
+}
+</script>
+{% endblock %}

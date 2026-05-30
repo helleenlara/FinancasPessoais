@@ -107,11 +107,20 @@
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Conta</label>
-            <select name="conta_id" class="form-select" required>
-              {% for conta in contas %}
-              <option value="{{ conta.id }}">{{ conta.nome }}</option>
-              {% endfor %}
+            <label class="form-label">Origem</label>
+            <select name="conta_id" id="selectOrigem" class="form-select" required>
+              <optgroup label="Contas">
+                {% for conta in contas %}
+                <option value="conta_{{ conta.id }}">{{ conta.nome }}</option>
+                {% endfor %}
+              </optgroup>
+              {% if cartoes %}
+              <optgroup label="Cartões de Crédito">
+                {% for cartao in cartoes %}
+                <option value="cartao_{{ cartao.id }}">💳 {{ cartao.nome }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
             </select>
           </div>
           <div class="mb-3">

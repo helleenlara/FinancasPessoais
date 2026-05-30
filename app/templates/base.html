@@ -8,6 +8,13 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
     body { background: #f4f6fb; font-family: 'Segoe UI', sans-serif; }
+    .navbar-toggler { border-color: rgba(255,255,255,0.5) !important; }
+    .navbar-toggler-icon { filter: invert(1); }
+    .navbar-collapse { background: #1a1f36; padding: 0.5rem 1rem; border-radius: 0 0 12px 12px; }
+    @media (max-width: 991px) {
+      .navbar-nav .nav-link { padding: 0.6rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+      .navbar-nav .nav-item:last-child .nav-link { border-bottom: none; }
+    }
     .navbar { background: #1a1f36 !important; }
     .navbar-brand { font-weight: 700; color: #fff !important; font-size: 1.2rem; }
     .nav-link { color: rgba(255,255,255,0.75) !important; }
@@ -37,6 +44,11 @@
     <div class="collapse navbar-collapse" id="navMenu">
       {% if current_user.is_authenticated %}
       <ul class="navbar-nav ms-auto align-items-center gap-2">
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('main.importar') }}">
+            <i class="bi bi-upload me-1"></i>Importar
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('main.dashboard') }}">
             <i class="bi bi-grid me-1"></i>Painel

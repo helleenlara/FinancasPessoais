@@ -60,8 +60,7 @@ class Lancamento(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     CATEGORIAS_ENTRADA = ['Salário', 'Freela', 'Vendas', 'Presente', 'Outros']
-    CATEGORIAS_SAIDA = ['Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Lazer', 'Roupas', 'Educação', 'Outros']
-
+    CATEGORIAS_SAIDA = ['Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Lazer', 'Roupas', 'Educação', 'Transferência para terceiros', 'Outros']
 
 class Cofre(db.Model):
     __tablename__ = 'cofres'

@@ -3,6 +3,8 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Conta, Lancamento, Cofre, Transferencia, CartaoCredito, CompraCartao, GastoFixo
 from datetime import datetime, date
+import csv
+import io
 
 main = Blueprint('main', __name__)
 
@@ -84,28 +86,56 @@ def excluir_conta(id):
 @login_required
 def lancamentos():
     contas = Conta.query.filter_by(usuario_id=current_user.id).all()
+    cartoes = CartaoCredito.query.filter_by(usuario_id=current_user.id).all()
     todos = Lancamento.query.filter_by(usuario_id=current_user.id).order_by(Lancamento.data.desc()).all()
     return render_template('lancamentos.html', lancamentos=todos, contas=contas,
+                           cartoes=cartoes,
                            categorias_entrada=Lancamento.CATEGORIAS_ENTRADA,
                            categorias_saida=Lancamento.CATEGORIAS_SAIDA)
 
 @main.route('/lancamentos/novo', methods=['POST'])
 @login_required
 def novo_lancamento():
-    conta_id = int(request.form['conta_id'])
-    Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
-    lancamento = Lancamento(
-        descricao=request.form['descricao'],
-        valor=float(request.form['valor']),
-        tipo=request.form['tipo'],
-        categoria=request.form['categoria'],
-        data=datetime.strptime(request.form['data'], '%Y-%m-%d').date(),
-        conta_id=conta_id,
-        usuario_id=current_user.id
-    )
-    db.session.add(lancamento)
-    db.session.commit()
-    flash('Lançamento registrado!', 'success')
+    origem = request.form['conta_id']
+    descricao = request.form['descricao']
+    valor = float(request.form['valor'])
+    tipo = request.form['tipo']
+    categoria = request.form['categoria']
+    data = datetime.strptime(request.form['data'], '%Y-%m-%d').date()
+
+    if origem.startswith('cartao_'):
+        # Lança como compra no cartão
+        cartao_id = int(origem.replace('cartao_', ''))
+        CartaoCredito.query.filter_by(id=cartao_id, usuario_id=current_user.id).first_or_404()
+        compra = CompraCartao(
+            descricao=descricao,
+            valor=valor,
+            categoria=categoria,
+            data=data,
+            parcelas=1,
+            cartao_id=cartao_id,
+            usuario_id=current_user.id
+        )
+        db.session.add(compra)
+        db.session.commit()
+        flash('Lançamento registrado no cartão!', 'success')
+    else:
+        # Lança normal na conta
+        conta_id = int(origem.replace('conta_', ''))
+        Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
+        lancamento = Lancamento(
+            descricao=descricao,
+            valor=valor,
+            tipo=tipo,
+            categoria=categoria,
+            data=data,
+            conta_id=conta_id,
+            usuario_id=current_user.id
+        )
+        db.session.add(lancamento)
+        db.session.commit()
+        flash('Lançamento registrado!', 'success')
+
     return redirect(url_for('main.lancamentos'))
 
 @main.route('/lancamentos/excluir/<int:id>', methods=['POST'])
@@ -267,6 +297,28 @@ def novo_cartao():
     flash('Cartão cadastrado!', 'success')
     return redirect(url_for('main.cartoes'))
 
+@main.route('/cartoes/<int:id>/pagar-fatura', methods=['POST'])
+@login_required
+def pagar_fatura(id):
+    cartao = CartaoCredito.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    valor = float(request.form.get('valor', cartao.total_fatura_atual))
+    conta_id = int(request.form.get('conta_id'))
+    data = datetime.strptime(request.form.get('data'), '%Y-%m-%d').date()
+    Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
+    lancamento = Lancamento(
+        descricao=f'Pagamento fatura {cartao.nome}',
+        valor=valor,
+        tipo='saida',
+        categoria='Cartão de Crédito',
+        data=data,
+        conta_id=conta_id,
+        usuario_id=current_user.id
+    )
+    db.session.add(lancamento)
+    db.session.commit()
+    flash(f'Fatura de R$ {"%.2f" % valor} paga com sucesso!', 'success')
+    return redirect(url_for('main.compras_cartao', id=id))
+
 @main.route('/cartoes/excluir/<int:id>', methods=['POST'])
 @login_required
 def excluir_cartao(id):
@@ -275,6 +327,7 @@ def excluir_cartao(id):
     db.session.commit()
     flash('Cartão excluído.', 'info')
     return redirect(url_for('main.cartoes'))
+
 
 @main.route('/cartoes/<int:id>/compras')
 @login_required
@@ -287,9 +340,11 @@ def compras_cartao(id):
         db.extract('year', CompraCartao.data) == ano
     ).order_by(CompraCartao.data.desc()).all()
     total = sum(c.valor for c in compras)
+    contas = Conta.query.filter_by(usuario_id=current_user.id).all()
     return render_template('compras_cartao.html', cartao=cartao, compras=compras,
                            total=total, mes=mes, ano=ano,
-                           categorias=Lancamento.CATEGORIAS_SAIDA)
+                           categorias=Lancamento.CATEGORIAS_SAIDA,
+                           contas=contas)
 
 @main.route('/cartoes/<int:id>/compras/nova', methods=['POST'])
 @login_required
@@ -366,3 +421,131 @@ def excluir_gasto_fixo(id):
     db.session.commit()
     flash('Gasto fixo excluído.', 'info')
     return redirect(url_for('main.gastos_fixos'))
+
+# ─── IMPORTAR EXTRATO ────────────────────────────────────────
+@main.route('/importar')
+@login_required
+def importar():
+    contas = Conta.query.filter_by(usuario_id=current_user.id).all()
+    cartoes = CartaoCredito.query.filter_by(usuario_id=current_user.id).all()
+    return render_template('importar.html', contas=contas, cartoes=cartoes)
+
+@main.route('/importar/processar', methods=['POST'])
+@login_required
+def processar_importacao():
+    arquivo = request.files.get('arquivo')
+    conta_id = request.form.get('conta_id')
+    tipo_origem = request.form.get('tipo_origem')
+
+    if not arquivo:
+        flash('Nenhum arquivo enviado.', 'danger')
+        return redirect(url_for('main.importar'))
+
+    nome = arquivo.filename.lower()
+    transacoes = []
+
+    try:
+        if nome.endswith('.csv'):
+            conteudo = arquivo.read().decode('utf-8', errors='ignore')
+            reader = csv.DictReader(io.StringIO(conteudo))
+            for row in reader:
+                transacoes.append(dict(row))
+
+        elif nome.endswith('.xlsx'):
+            import openpyxl
+            wb = openpyxl.load_workbook(arquivo)
+            ws = wb.active
+            headers = [str(c.value).strip() if c.value else '' for c in ws[1]]
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if any(row):
+                    transacoes.append(dict(zip(headers, row)))
+        else:
+            flash('Formato inválido. Use .csv ou .xlsx', 'danger')
+            return redirect(url_for('main.importar'))
+
+    except Exception as e:
+        flash(f'Erro ao ler o arquivo: {str(e)}', 'danger')
+        return redirect(url_for('main.importar'))
+
+    # Salva na sessão para revisar antes de confirmar
+    import json
+    from flask import session
+    session['transacoes_importadas'] = json.dumps(transacoes[:50], default=str)
+    session['importar_conta_id'] = conta_id
+    session['importar_tipo_origem'] = tipo_origem
+
+    return redirect(url_for('main.revisar_importacao'))
+
+
+@main.route('/importar/revisar')
+@login_required
+def revisar_importacao():
+    import json
+    from flask import session
+    transacoes_raw = session.get('transacoes_importadas', '[]')
+    transacoes = json.loads(transacoes_raw)
+    conta_id = session.get('importar_conta_id')
+    tipo_origem = session.get('importar_tipo_origem')
+    contas = Conta.query.filter_by(usuario_id=current_user.id).all()
+    cartoes = CartaoCredito.query.filter_by(usuario_id=current_user.id).all()
+    return render_template('revisar_importacao.html',
+                           transacoes=transacoes,
+                           conta_id=conta_id,
+                           tipo_origem=tipo_origem,
+                           contas=contas,
+                           cartoes=cartoes,
+                           categorias_saida=Lancamento.CATEGORIAS_SAIDA,
+                           categorias_entrada=Lancamento.CATEGORIAS_ENTRADA)
+
+
+@main.route('/importar/confirmar', methods=['POST'])
+@login_required
+def confirmar_importacao():
+    descricoes = request.form.getlist('descricao')
+    valores = request.form.getlist('valor')
+    tipos = request.form.getlist('tipo')
+    categorias = request.form.getlist('categoria')
+    datas = request.form.getlist('data')
+    incluir = request.form.getlist('incluir')
+    conta_id = int(request.form.get('conta_id'))
+    tipo_origem = request.form.get('tipo_origem')
+
+    count = 0
+    for i in range(len(descricoes)):
+        if str(i) not in incluir:
+            continue
+        try:
+            valor = float(str(valores[i]).replace(',', '.').replace('R$', '').strip())
+            if valor <= 0:
+                continue
+            data_obj = datetime.strptime(datas[i], '%Y-%m-%d').date()
+
+            if tipo_origem == 'cartao':
+                compra = CompraCartao(
+                    descricao=descricoes[i],
+                    valor=valor,
+                    categoria=categorias[i],
+                    data=data_obj,
+                    parcelas=1,
+                    cartao_id=conta_id,
+                    usuario_id=current_user.id
+                )
+                db.session.add(compra)
+            else:
+                lancamento = Lancamento(
+                    descricao=descricoes[i],
+                    valor=valor,
+                    tipo=tipos[i],
+                    categoria=categorias[i],
+                    data=data_obj,
+                    conta_id=conta_id,
+                    usuario_id=current_user.id
+                )
+                db.session.add(lancamento)
+            count += 1
+        except Exception:
+            continue
+
+    db.session.commit()
+    flash(f'{count} transações importadas com sucesso!', 'success')
+    return redirect(url_for('main.lancamentos'))
