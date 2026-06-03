@@ -115,7 +115,7 @@
           <div id="campos_cofre_conta" style="display:none;">
             <div class="mb-3">
               <label class="form-label">Cofre de origem</label>
-              <select name="cofre_id" class="form-select">
+              <select name="cofre_origem_id" class="form-select">
                 {% for c in cofres %}
                 <option value="{{ c.id }}">{{ c.emoji }} {{ c.nome }} (R$ {{ "%.2f"|format(c.valor_atual) }})</option>
                 {% endfor %}
@@ -123,7 +123,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Conta de destino</label>
-              <select name="conta_id" class="form-select">
+              <select name="conta_destino_id" class="form-select">
                 {% for c in contas %}
                 <option value="{{ c.id }}">{{ c.nome }}</option>
                 {% endfor %}
