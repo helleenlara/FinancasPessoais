@@ -48,38 +48,20 @@
                   checked onchange="toggleLinha({{ idx }}, this.checked)">
               </td>
               <td>
-                {% set desc = '' %}
-                {% for key in t.keys() %}
-                  {% if 'descri' in key|lower or 'memo' in key|lower or 'histor' in key|lower or 'estabeleci' in key|lower %}
-                    {% set desc = t[key] %}
-                  {% endif %}
-                {% endfor %}
-                {% if not desc %}
-                  {% set desc = t.values()|list|first %}
-                {% endif %}
-                <input type="text" name="descricao" value="{{ desc|string|truncate(50) }}"
+                <input type="text" name="descricao"
+                  value="{{ t.get('descricao', t.values()|list|first|string)|truncate(50) }}"
                   class="form-control form-control-sm">
               </td>
               <td>
-                {% set val = '' %}
-                {% for key in t.keys() %}
-                  {% if 'valor' in key|lower or 'value' in key|lower or 'amount' in key|lower or 'quantia' in key|lower %}
-                    {% set val = t[key] %}
-                  {% endif %}
-                {% endfor %}
-                {% if not val %}
-                  {% set vals = t.values()|list %}
-                  {% if vals|length > 1 %}{% set val = vals[1] %}{% endif %}
-                {% endif %}
                 <input type="number" step="0.01" min="0" name="valor"
-                  value="{{ val|string|replace('-','')|replace('R$','')|replace(' ','')|truncate(12,True,'') }}"
+                  value="{{ t.get('valor', 0) }}"
                   class="form-control form-control-sm">
               </td>
               {% if tipo_origem == 'conta' %}
               <td>
                 <select name="tipo" class="form-select form-select-sm">
-                  <option value="saida">Saída</option>
-                  <option value="entrada">Entrada</option>
+                  <option value="saida" {{ 'selected' if t.get('tipo') == 'saida' }}>Saída</option>
+                  <option value="entrada" {{ 'selected' if t.get('tipo') == 'entrada' }}>Entrada</option>
                 </select>
               </td>
               {% endif %}
@@ -97,14 +79,8 @@
                 </select>
               </td>
               <td>
-                {% set dt = '' %}
-                {% for key in t.keys() %}
-                  {% if 'data' in key|lower or 'date' in key|lower or 'dt' in key|lower %}
-                    {% set dt = t[key] %}
-                  {% endif %}
-                {% endfor %}
                 <input type="date" name="data"
-                  value="{{ dt|string|truncate(10,True,'') if dt else '' }}"
+                  value="{{ t.get('data', '')|string|truncate(10, True, '') }}"
                   class="form-control form-control-sm">
               </td>
             </tr>

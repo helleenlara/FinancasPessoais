@@ -451,7 +451,7 @@ def processar_importacao():
             sep = ';' if conteudo.count(';') > conteudo.count(',') else ','
             linhas = conteudo.splitlines()
 
-            # Encontra a linha do cabeçalho real
+            # Encontra a linha do cabeçalho real procurando por palavras-chave de data/transação
             header_idx = 0
             palavras_header = ['date', 'data', 'release', 'transaction', 'descri', 'histor', 'memo', 'lancamento']
             for i, linha in enumerate(linhas):
@@ -460,6 +460,7 @@ def processar_importacao():
                     header_idx = i
                     break
 
+            # Lê o CSV a partir do cabeçalho real
             conteudo_util = '\n'.join(linhas[header_idx:])
             reader = csv.DictReader(io.StringIO(conteudo_util), delimiter=sep)
             for row in reader:
@@ -493,11 +494,13 @@ def processar_importacao():
         flash('Nenhuma transação encontrada no arquivo.', 'warning')
         return redirect(url_for('main.importar'))
 
+    # Normaliza as transações detectando as colunas automaticamente
     import json
     from flask import session
 
     transacoes_normalizadas = []
 
+    # Detecta os nomes das colunas uma vez
     if transacoes:
         colunas = list(transacoes[0].keys())
 
@@ -521,6 +524,7 @@ def processar_importacao():
             if any(p in c.lower() for p in ['net_amount', 'valor', 'amount', 'value', 'quantia', 'vlr']):
                 col_valor = c
                 break
+        # Fallback — pega a primeira coluna numérica
         if not col_valor:
             for c in colunas:
                 if any(p in c.lower() for p in ['credit', 'debit', 'saldo', 'balance']):
@@ -539,6 +543,7 @@ def processar_importacao():
                 # Valor
                 val_raw = str(t.get(col_valor, '') or '').strip()
                 val_raw = val_raw.replace('R$', '').replace(' ', '')
+                # Formato brasileiro: 1.234,56 → 1234.56
                 if ',' in val_raw and '.' in val_raw:
                     val_raw = val_raw.replace('.', '').replace(',', '.')
                 elif ',' in val_raw:
@@ -555,10 +560,11 @@ def processar_importacao():
                 else:
                     tipo = 'entrada'
 
+                # Ignora linhas com valor zero
                 if valor == 0:
                     continue
 
-                # Ajusta tipo pela descrição
+                # Detecta tipo pela descrição se valor for positivo
                 desc_lower = desc.lower()
                 if any(p in desc_lower for p in ['pagamento', 'compra', 'pix enviado', 'débito', 'debito', 'saque', 'retirado', 'reservado', 'uber', 'ifood']):
                     tipo = 'saida'
@@ -569,6 +575,7 @@ def processar_importacao():
                 data_raw = str(t.get(col_data, '') or '').strip()
                 data_fmt = ''
                 if data_raw:
+                    # Tenta vários formatos
                     for fmt in ['%d-%m-%Y', '%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y', '%d-%m-%y', '%d/%m/%y']:
                         try:
                             from datetime import datetime as dt_parse
@@ -577,7 +584,7 @@ def processar_importacao():
                         except Exception:
                             continue
 
-                # Categoria automática
+                # Categoria automática pela descrição
                 categoria = 'Outros'
                 if any(p in desc_lower for p in ['mercado', 'supermercado', 'alimenta', 'restaurante', 'lanche', 'ifood', 'rappi', 'padaria', 'açougue']):
                     categoria = 'Alimentação'
@@ -595,6 +602,8 @@ def processar_importacao():
                     categoria = 'Educação'
                 elif any(p in desc_lower for p in ['pix enviado', 'transferencia', 'ted', 'doc']):
                     categoria = 'Transferência para terceiros'
+                elif tipo == 'entrada' and any(p in desc_lower for p in ['rendimento', 'salario', 'venda']):
+                    categoria = 'Outros'
 
                 transacoes_normalizadas.append({
                     'descricao': desc[:80],
