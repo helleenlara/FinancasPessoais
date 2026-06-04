@@ -281,15 +281,14 @@ def nova_transferencia():
         t = Transferencia(valor=valor, descricao=descricao or f'Conta → {cofre.nome}', data=data, tipo='conta_cofre', conta_origem_id=conta_id, cofre_id=cofre_id, usuario_id=current_user.id)
 
     elif tipo == 'cofre_conta':
-        cofre_id = int(request.form.get('cofre_origem_id'))
-        conta_id = int(request.form.get('conta_destino_id'))
+        cofre_id = int(request.form.get('cofre_id'))
+        conta_id = int(request.form.get('conta_id'))
         cofre = Cofre.query.filter_by(id=cofre_id, usuario_id=current_user.id).first_or_404()
         Conta.query.filter_by(id=conta_id, usuario_id=current_user.id).first_or_404()
         if valor > cofre.valor_atual:
-    flash('Saldo insuficiente no cofre.', 'danger')
-    return redirect(url_for('main.transferencias'))
-
-cofre.valor_atual -= valor
+            flash('Saldo insuficiente no cofre.', 'danger')
+            return redirect(url_for('main.transferencias'))
+        cofre.valor_atual -= valor
         db.session.add(Lancamento(descricao=f'Retirada do cofre {cofre.nome}', valor=valor, tipo='entrada', categoria='Transferência', data=data, conta_id=conta_id, usuario_id=current_user.id))
         t = Transferencia(valor=valor, descricao=descricao or f'{cofre.nome} → Conta', data=data, tipo='cofre_conta', conta_destino_id=conta_id, cofre_id=cofre_id, usuario_id=current_user.id)
 
