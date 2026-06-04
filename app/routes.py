@@ -136,6 +136,21 @@ def novo_lancamento():
 
     return redirect(url_for('main.lancamentos'))
 
+@main.route('/lancamentos/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_lancamento(id):
+    lancamento = Lancamento.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    if request.method == 'POST':
+        lancamento.descricao = request.form['descricao']
+        lancamento.valor = float(request.form['valor'])
+        lancamento.tipo = request.form['tipo']
+        lancamento.categoria = request.form['categoria']
+        lancamento.data = datetime.strptime(request.form['data'], '%Y-%m-%d').date()
+        db.session.commit()
+        flash('Lançamento atualizado!', 'success')
+        return redirect(url_for('main.lancamentos'))
+    return redirect(url_for('main.lancamentos'))
+
 @main.route('/lancamentos/excluir/<int:id>', methods=['POST'])
 @login_required
 def excluir_lancamento(id):
@@ -229,6 +244,15 @@ def transferencias():
     cofres = Cofre.query.filter_by(usuario_id=current_user.id).all()
     historico = Transferencia.query.filter_by(usuario_id=current_user.id).order_by(Transferencia.data.desc()).all()
     return render_template('transferencias.html', contas=contas, cofres=cofres, historico=historico)
+
+@main.route('/transferencias/excluir/<int:id>', methods=['POST'])
+@login_required
+def excluir_transferencia(id):
+    t = Transferencia.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    db.session.delete(t)
+    db.session.commit()
+    flash('Transferência excluída.', 'info')
+    return redirect(url_for('main.transferencias'))
 
 @main.route('/transferencias/nova', methods=['POST'])
 @login_required

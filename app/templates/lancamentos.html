@@ -41,10 +41,69 @@
               {{ '+' if l.tipo == 'entrada' else '-' }} R$ {{ "%.2f"|format(l.valor) }}
             </td>
             <td>
-              <form method="POST" action="{{ url_for('main.excluir_lancamento', id=l.id) }}"
-                onsubmit="return confirm('Excluir este lançamento?')">
-                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-              </form>
+              <!-- Modal editar lançamento -->
+              <div class="modal fade" id="modalEditar{{ l.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                  <div class="modal-content">
+                    <form method="POST" action="{{ url_for('main.editar_lancamento', id=l.id) }}">
+                      <div class="modal-header">
+                        <h5 class="modal-title">Editar lançamento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                      </div>
+                      <div class="modal-body">
+                        <div class="mb-3">
+                          <label class="form-label">Descrição</label>
+                          <input type="text" name="descricao" class="form-control"
+                            value="{{ l.descricao }}" required>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Valor (R$)</label>
+                          <input type="number" step="0.01" min="0.01" name="valor"
+                            class="form-control" value="{{ l.valor }}" required>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Tipo</label>
+                          <select name="tipo" class="form-select">
+                            <option value="entrada" {{ 'selected' if l.tipo == 'entrada' }}>Entrada</option>
+                            <option value="saida" {{ 'selected' if l.tipo == 'saida' }}>Saída</option>
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Categoria</label>
+                          <select name="categoria" class="form-select">
+                            {% for c in categorias_entrada %}
+                            <option {{ 'selected' if l.categoria == c }}>{{ c }}</option>
+                            {% endfor %}
+                            {% for c in categorias_saida %}
+                            <option {{ 'selected' if l.categoria == c }}>{{ c }}</option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label">Data</label>
+                          <input type="date" name="data" class="form-control"
+                            value="{{ l.data.strftime('%Y-%m-%d') }}" required>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalEditar{{ l.id }}">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form method="POST" action="{{ url_for('main.excluir_lancamento', id=l.id) }}"
+                  onsubmit="return confirm('Excluir este lançamento?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </div>
             </td>
           </tr>
           {% endfor %}

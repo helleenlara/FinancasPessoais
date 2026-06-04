@@ -19,6 +19,7 @@
             <th>Descrição</th>
             <th>Tipo</th>
             <th class="text-end">Valor</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -36,6 +37,15 @@
               {% endif %}
             </td>
             <td class="text-end fw-bold text-primary">R$ {{ "%.2f"|format(t.valor) }}</td>
+            <td>
+              <form method="POST"
+                action="{{ url_for('main.excluir_transferencia', id=t.id) }}"
+                onsubmit="return confirm('Excluir esta transferência?')">
+                <button class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
