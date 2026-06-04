@@ -249,9 +249,44 @@ def transferencias():
 @login_required
 def excluir_transferencia(id):
     t = Transferencia.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+
+    if t.tipo == 'conta_conta':
+        # Remove os dois lançamentos gerados
+        Lancamento.query.filter_by(
+            usuario_id=current_user.id,
+            categoria='Transferência',
+            data=t.data
+        ).filter(
+            Lancamento.conta_id.in_([t.conta_origem_id, t.conta_destino_id])
+        ).delete(synchronize_session=False)
+
+    elif t.tipo == 'conta_cofre':
+        # Remove o lançamento e reverte o cofre
+        Lancamento.query.filter_by(
+            usuario_id=current_user.id,
+            categoria='Transferência',
+            data=t.data,
+            conta_id=t.conta_origem_id
+        ).delete(synchronize_session=False)
+        cofre = Cofre.query.get(t.cofre_id)
+        if cofre:
+            cofre.valor_atual = max(0, cofre.valor_atual - t.valor)
+
+    elif t.tipo == 'cofre_conta':
+        # Remove o lançamento e reverte o cofre
+        Lancamento.query.filter_by(
+            usuario_id=current_user.id,
+            categoria='Transferência',
+            data=t.data,
+            conta_id=t.conta_destino_id
+        ).delete(synchronize_session=False)
+        cofre = Cofre.query.get(t.cofre_id)
+        if cofre:
+            cofre.valor_atual += t.valor
+
     db.session.delete(t)
     db.session.commit()
-    flash('Transferência excluída.', 'info')
+    flash('Movimentação excluída e valores revertidos.', 'info')
     return redirect(url_for('main.transferencias'))
 
 @main.route('/transferencias/nova', methods=['POST'])
