@@ -3,7 +3,8 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-<h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Movimentações entre contas e cofres</h4>  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransferencia">
+  <h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Movimentações entre contas e cofres</h4>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransferencia">
     <i class="bi bi-plus-lg me-1"></i>Nova Movimentação
   </button>
 </div>
@@ -40,7 +41,7 @@
             <td>
               <form method="POST"
                 action="{{ url_for('main.excluir_transferencia', id=t.id) }}"
-                onsubmit="return confirm('Excluir esta transferência?')">
+                onsubmit="return confirm('Excluir esta movimentação?')">
                 <button class="btn btn-sm btn-outline-danger">
                   <i class="bi bi-trash"></i>
                 </button>
@@ -54,7 +55,7 @@
     {% else %}
     <div class="text-center py-5 text-muted">
       <i class="bi bi-arrow-left-right fs-1 d-block mb-3"></i>
-      Nenhuma transferência ainda.
+      Nenhuma movimentação ainda.
     </div>
     {% endif %}
   </div>
@@ -66,13 +67,12 @@
     <div class="modal-content">
       <form method="POST" action="{{ url_for('main.nova_transferencia') }}" id="formTransf">
         <div class="modal-header">
-          <h5 class="modal-title">Nova transferência</h5>
+          <h5 class="modal-title">Nova Movimentação</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
 
-          <!-- Tipo -->
-         <div class="mb-3">
+          <div class="mb-3">
             <label class="form-label">O que você quer fazer?</label>
             <select name="tipo" id="tipoTransf" class="form-select" onchange="atualizarCampos()">
               <option value="conta_conta">Mover dinheiro entre minhas contas</option>
@@ -81,7 +81,7 @@
             </select>
           </div>
 
-          <!-- Conta A para Conta B -->
+          <!-- Conta para Conta -->
           <div id="campos_conta_conta">
             <div class="mb-3">
               <label class="form-label">Conta de origem</label>
@@ -104,7 +104,7 @@
           <!-- Conta para Cofre -->
           <div id="campos_conta_cofre" style="display:none;">
             <div class="mb-3">
-              <label class="form-label">Conta de origem</label>
+              <label class="form-label">De qual conta?</label>
               <select name="conta_id" class="form-select">
                 {% for c in contas %}
                 <option value="{{ c.id }}">{{ c.nome }} (R$ {{ "%.2f"|format(c.saldo_atual) }})</option>
@@ -112,7 +112,7 @@
               </select>
             </div>
             <div class="mb-3">
-              <label class="form-label">Cofre de destino</label>
+              <label class="form-label">Para qual cofre?</label>
               <select name="cofre_id" class="form-select">
                 {% for c in cofres %}
                 <option value="{{ c.id }}">{{ c.emoji }} {{ c.nome }} ({{ c.percentual }}%)</option>
@@ -124,16 +124,16 @@
           <!-- Cofre para Conta -->
           <div id="campos_cofre_conta" style="display:none;">
             <div class="mb-3">
-              <label class="form-label">Cofre de origem</label>
-              <select name="cofre_origem_id" class="form-select">
+              <label class="form-label">De qual cofre?</label>
+              <select name="cofre_id" class="form-select">
                 {% for c in cofres %}
                 <option value="{{ c.id }}">{{ c.emoji }} {{ c.nome }} (R$ {{ "%.2f"|format(c.valor_atual) }})</option>
                 {% endfor %}
               </select>
             </div>
             <div class="mb-3">
-              <label class="form-label">Conta de destino</label>
-              <select name="conta_destino_id" class="form-select">
+              <label class="form-label">Para qual conta?</label>
+              <select name="conta_id" class="form-select">
                 {% for c in contas %}
                 <option value="{{ c.id }}">{{ c.nome }}</option>
                 {% endfor %}
@@ -147,7 +147,8 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Descrição (opcional)</label>
-            <input type="text" name="descricao" class="form-control" placeholder="Ex: Guardando para viagem">
+            <input type="text" name="descricao" class="form-control"
+              placeholder="Ex: Guardando para viagem">
           </div>
           <div class="mb-3">
             <label class="form-label">Data</label>
@@ -156,7 +157,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Transferir</button>
+          <button type="submit" class="btn btn-primary">Confirmar</button>
         </div>
       </form>
     </div>
@@ -170,9 +171,23 @@ document.getElementById('dataTransf').value = new Date().toISOString().split('T'
 
 function atualizarCampos() {
   const tipo = document.getElementById('tipoTransf').value;
+
   document.getElementById('campos_conta_conta').style.display = tipo === 'conta_conta' ? '' : 'none';
   document.getElementById('campos_conta_cofre').style.display = tipo === 'conta_cofre' ? '' : 'none';
   document.getElementById('campos_cofre_conta').style.display = tipo === 'cofre_conta' ? '' : 'none';
+
+  document.querySelectorAll('#campos_conta_conta select').forEach(el => el.disabled = tipo !== 'conta_conta');
+  document.querySelectorAll('#campos_conta_cofre select').forEach(el => el.disabled = tipo !== 'conta_cofre');
+  document.querySelectorAll('#campos_cofre_conta select').forEach(el => el.disabled = tipo !== 'cofre_conta');
 }
+
+document.addEventListener('DOMContentLoaded', atualizarCampos);
+
+document.getElementById('formTransf').addEventListener('submit', function() {
+  const tipo = document.getElementById('tipoTransf').value;
+  document.querySelectorAll('#campos_conta_conta select').forEach(el => el.disabled = tipo !== 'conta_conta');
+  document.querySelectorAll('#campos_conta_cofre select').forEach(el => el.disabled = tipo !== 'conta_cofre');
+  document.querySelectorAll('#campos_cofre_conta select').forEach(el => el.disabled = tipo !== 'cofre_conta');
+});
 </script>
 {% endblock %}
