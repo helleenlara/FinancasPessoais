@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}{{ cofre.emoji }} {{ cofre.nome }} — Histórico{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <a href="{{ url_for('main.cofres') }}" class="text-muted small">
+      <i class="bi bi-arrow-left me-1"></i>Voltar
+    </a>
+    <h4 class="fw-bold mb-0 mt-1">
+      {{ cofre.emoji }} {{ cofre.nome }}
+    </h4>
+  </div>
+</div>
+
+<!-- Resumo do cofre -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center p-3">
+      <div class="text-muted small mb-1">Guardado</div>
+      <div class="fs-4 fw-bold text-success">R$ {{ "%.2f"|format(cofre.valor_atual) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center p-3">
+      <div class="text-muted small mb-1">Meta</div>
+      <div class="fs-4 fw-bold">R$ {{ "%.2f"|format(cofre.meta) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center p-3">
+      <div class="text-muted small mb-1">Progresso</div>
+      <div class="fs-4 fw-bold text-primary">{{ cofre.percentual }}%</div>
+      <div class="progress mt-2" style="height:8px;">
+        <div class="progress-bar bg-warning" style="width:{{ cofre.percentual }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Histórico -->
+<div class="card">
+  <div class="card-header bg-white fw-semibold">
+    <i class="bi bi-clock-history me-2"></i>Histórico de movimentações
+  </div>
+  <div class="card-body p-0">
+    {% if movimentacoes %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Tipo</th>
+            <th class="text-end">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movimentacoes %}
+          <tr>
+            <td class="text-muted small">{{ m.data.strftime('%d/%m/%Y') }}</td>
+            <td class="fw-semibold">{{ m.descricao }}</td>
+            <td>
+              {% if m.tipo == 'conta_cofre' %}
+                <span class="badge bg-success text-white">
+                  <i class="bi bi-arrow-down-circle me-1"></i>Depósito
+                </span>
+              {% else %}
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-arrow-up-circle me-1"></i>Retirada
+                </span>
+              {% endif %}
+            </td>
+            <td class="text-end fw-bold text-{{ 'success' if m.tipo == 'conta_cofre' else 'warning' }}">
+              {{ '+' if m.tipo == 'conta_cofre' else '-' }} R$ {{ "%.2f"|format(m.valor) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+      Nenhuma movimentação ainda neste cofre.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

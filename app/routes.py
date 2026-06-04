@@ -197,6 +197,16 @@ def depositar_cofre(id):
     db.session.commit()
     return redirect(url_for('main.cofres'))
 
+@main.route('/cofres/<int:id>/historico')
+@login_required
+def historico_cofre(id):
+    cofre = Cofre.query.filter_by(id=id, usuario_id=current_user.id).first_or_404()
+    movimentacoes = Transferencia.query.filter_by(
+        usuario_id=current_user.id,
+        cofre_id=id
+    ).order_by(Transferencia.data.desc()).all()
+    return render_template('historico_cofre.html', cofre=cofre, movimentacoes=movimentacoes)
+
 @main.route('/cofres/excluir/<int:id>', methods=['POST'])
 @login_required
 def excluir_cofre(id):
